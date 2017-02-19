@@ -4,7 +4,7 @@
 #include <bcm2835.h>
 import libbcm2835._bcm2835 as soc 
 #include <stdio.h>
-
+import select as select
 from ctypes import *
 from bluetooth import *
 
@@ -17,6 +17,12 @@ port = server_sock.getsockname()[1]
 uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
 
 
+
+
+
+
+
+TransmittedString = [1024]
 trRESET = soc.RPI_V2_GPIO_P1_15 	
 trCSCON = 26
 trCSDATA = soc.RPI_V2_GPIO_P1_13 
@@ -156,6 +162,45 @@ def SetRFMode(mode):
 		
 	soc.bcm2835_gpio_write(trCSCON,1);
 	return
+
+#************************************************************************************
+# TransiverToReceive()
+#
+#function sets the transiver into receive mode
+#************************************************************************************
+def TransiverToReceive():
+	SetRFMode(0x20)
+	soc.bcm2835_delay(10)
+	SetRFMode(0x40)
+	RegisterSet(0x0E,(RegisterRead(0x0E)|0x02))
+	while (RegisterRead(0x0E)&0b00000010)==0:
+		x=1
+	SetRFMode(0x60)
+	soc.bcm2835_delayMicroseconds(500)
+	return
+
+#************************************************************************************
+#TransiverReadFIFO()
+#Function reads the fifo from the transiver and returns the data package
+#************************************************************************************
+def TransiverReadFIFO():
+	global TransmittedString
+	SetRFMode(0x20)
+	i=0
+	while soc.bcm2835_gpio_lev(13) == 1:
+	#	TransmittedString[i]=ReadFIFO()
+	#	if ReadFIFO() == 44:
+	#		print("New Packet:")
+	#		s = 'Bustel: ' + repr(ReadFIFO()) +' | ' +  repr(ReadFIFO())
+	#		print (s)
+	#		client_sock.send(s)
+			#print('Value: ', ReadFIFO())
+				
+		i=i+1
+
+	soc.bcm2835_delay(10)
+	SetRFMode(0x00)
+	return	
 #************************************************************************************
 # Initiate the transiver
 #************************************************************************************
@@ -224,7 +269,7 @@ def TransmittString(dataString):
 	return
 
 def main():
- 
+ 	global TransmittedString
 	 
 	 #If you call this, it will not actually access the GPIO
 	# Use for testing
@@ -257,23 +302,53 @@ def main():
 	soc.bcm2835_delay(6)
    
 	TransiverInit()
-	
+	print "Initiation Complete"
+	while False:		
+		TransiverToReceive()	
+		while soc.bcm2835_gpio_lev(trIRQ1)==0:
+			l=0
+		TransiverReadFIFO()
+		#client_soct.send("he")
+		#print "sending [%s]" % data	
 	advertise_service( server_sock, "SampleServer", service_id = uuid,service_classes = [ uuid, SERIAL_PORT_CLASS ],profiles = [ SERIAL_PORT_PROFILE ],)
                    
 	print("Waiting for connection on RFCOMM channel %d" % port)
 
 	client_sock, client_info = server_sock.accept()
 	print("Accepted connection from ", client_info)
-
+	client_sock.setblocking(0)
+	TransiverToReceive()
 	try:
     		while True:
-       			data = client_sock.recv(1024)
-        		if len(data) == 0: break
-        		print("received [%s]" % data)
-			if data=="Flash":
-				TransmittString("N1BLINK")
-			client_sock.send("he")
-			print "sending [%s]" % data	 	
+		#	r,_,_ = select.select([client_sock],[],[])
+		#	if r:
+			try:
+       				data = client_sock.recv(1024)
+ 				print("BT Received %s" %data)
+
+			except Exception as e:
+				l = 1
+			client_sock.send("MOKKEL")
+		#	if len(data) != 0:
+		#		print("BT received %s " % data)
+		#		TransmittStringd(data)
+		#		TransiverToReceive()
+		#	if data=="Flash":
+		#		TransmittString(',' + '1' + '1' + '7' )
+		#	if data=="Light":
+		#		TransmittString("FLASHL")
+		#	if data=="N1Flash":
+		#		TransmittString("N1BLINK")
+		#	if data=="N2Flash":
+		#		TransmittString("N2BLINK")
+
+		#	soc.bcm2835_delay(100)	
+		#	print "Bustel com"	
+			if soc.bcm2835_gpio_lev(trIRQ1)==1:
+				TransiverReadFIFO()
+				client_sock.send("BAJJJJJJA")
+		#		print "Bustel Received: [%s]" % TransmittedString
+				TransiverToReceive()	 	
 	except IOError:
     		pass
 
