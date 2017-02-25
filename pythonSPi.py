@@ -22,7 +22,7 @@ uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
 
 
 
-TransmittedString = [1024]
+TransmittedString = [10]
 trRESET = soc.RPI_V2_GPIO_P1_15 	
 trCSCON = 26
 trCSDATA = soc.RPI_V2_GPIO_P1_13 
@@ -185,19 +185,25 @@ def TransiverToReceive():
 #************************************************************************************
 def TransiverReadFIFO():
 	global TransmittedString
+	
+
+
+
 	SetRFMode(0x20)
 	i=0
 	print 'Transiver read fifo:    '
 	while soc.bcm2835_gpio_lev(13) == 1:
 		tmp = ReadFIFO()
-		
-		#print(tmp)
-		#TransmittedString.append(tmp)
+
 		if tmp == 44:
 			print("New Packet:")
-		
-		print str(tmp)					
-		i=1
+			TransmittedString[0] = tmp
+			TransmittedString[1] = ReadFIFO()
+			TransmittedString[2] = ReadFIFO()
+			TransmittedString[3] = ReadFIFO()
+				
+		print TransmittedString					
+	
 
 	soc.bcm2835_delay(10)
 	SetRFMode(0x00)
@@ -359,10 +365,7 @@ def main():
 		#	soc.bcm2835_delay(100)	
 		#	print "Bustel com"	
 			if soc.bcm2835_gpio_lev(trIRQ1)==1:
-				TransiverReadFIFO()
-				client_sock.send("BAJJJJJJA")
-				#print("Bustel sent: %s" %TransmittedString)
-			
+				TransiverReadFIFO()	
 				TransiverToReceive()	 	
 	except IOError:
     		pass
