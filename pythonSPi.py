@@ -187,15 +187,15 @@ def TransiverReadFIFO():
 	global TransmittedString
 	SetRFMode(0x20)
 	i=0
+	print 'Transiver read fifo:    '
 	while soc.bcm2835_gpio_lev(13) == 1:
-	#	TransmittedString[i]=ReadFIFO()
-	#	if ReadFIFO() == 44:
-	#		print("New Packet:")
-	#		s = 'Bustel: ' + repr(ReadFIFO()) +' | ' +  repr(ReadFIFO())
-	#		print (s)
-	#		client_sock.send(s)
-			#print('Value: ', ReadFIFO())
-				
+		tmp = ReadFIFO()
+		
+		print(bin(tmp))
+		TransmittedString.append(tmp)
+		if tmp == 44:
+			print("New Packet:")
+							
 		i=i+1
 
 	soc.bcm2835_delay(10)
@@ -237,7 +237,7 @@ def TransiverInit():
 	SetRFMode(0x00);
 	return
  
-def TransmittString(dataString):
+def TransmittString(topic, value):
 	#Initiation of transmitt sequence
 	SetRFMode(0x20);					#Transiver into Standby
 	soc.bcm2835_delay(10);					#Wait for oscillator to wake up
@@ -254,12 +254,13 @@ def TransmittString(dataString):
 	WriteFIFO(0x4E);
 	WriteFIFO(0x43);
 
-	#Transmitt data
-	for cnt in range(0,len(dataString)):
-		WriteFIFO(ord(dataString[cnt]))
+	#Transmitt datat
+	WriteFIFO(44)
+	WriteFIFO(topic)
+	WriteFIFO(value)
+	writeFIFO(55)
 
-		
-
+	print 44, topic, value, 55
 	#wait for transmitt done, set the transiver back to sleep
 	while soc.bcm2835_gpio_lev(trIRQ1) == 0:
 			q=1
@@ -303,11 +304,11 @@ def main():
    
 	TransiverInit()
 	print "Initiation Complete"
-	while False:		
-		TransiverToReceive()	
-		while soc.bcm2835_gpio_lev(trIRQ1)==0:
-			l=0
-		TransiverReadFIFO()
+	#while False:		
+	#	TransiverToReceive()	
+	#	while soc.bcm2835_gpio_lev(trIRQ1)==0:
+	#		l=0
+	#	TransiverReadFIFO()
 		#client_soct.send("he")
 		#print "sending [%s]" % data	
 	advertise_service( server_sock, "SampleServer", service_id = uuid,service_classes = [ uuid, SERIAL_PORT_CLASS ],profiles = [ SERIAL_PORT_PROFILE ],)
@@ -318,17 +319,28 @@ def main():
 	print("Accepted connection from ", client_info)
 	client_sock.setblocking(0)
 	TransiverToReceive()
+	startMessage = False
+	topicRecieved = False
+
 	try:
     		while True:
 		#	r,_,_ = select.select([client_sock],[],[])
 		#	if r:
 			try:
-       				data = client_sock.recv(1024)
- 				print("BT Received %s" %data)
-
+						
+				data = client_sock.recv(1024)
+ 				if len(data)==0: break
+				print(ord(data[0]))
+				print(ord(data[1]))
+				print(ord(data[2]))
+				print(ord(data[3]))
+				TransmittString(data[1],data[2])
+						
+				
+								
 			except Exception as e:
 				l = 1
-			client_sock.send("MOKKEL")
+		#	client_sock.send("MOKKEL")
 		#	if len(data) != 0:
 		#		print("BT received %s " % data)
 		#		TransmittStringd(data)
@@ -347,7 +359,8 @@ def main():
 			if soc.bcm2835_gpio_lev(trIRQ1)==1:
 				TransiverReadFIFO()
 				client_sock.send("BAJJJJJJA")
-		#		print "Bustel Received: [%s]" % TransmittedString
+				#print("Bustel sent: %s" %TransmittedString)
+			
 				TransiverToReceive()	 	
 	except IOError:
     		pass
