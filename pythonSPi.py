@@ -191,12 +191,13 @@ def TransiverReadFIFO():
 	while soc.bcm2835_gpio_lev(13) == 1:
 		tmp = ReadFIFO()
 		
-		print(bin(tmp))
-		TransmittedString.append(tmp)
+		#print(tmp)
+		#TransmittedString.append(tmp)
 		if tmp == 44:
 			print("New Packet:")
-							
-		i=i+1
+		
+		print str(tmp)					
+		i=1
 
 	soc.bcm2835_delay(10)
 	SetRFMode(0x00)
@@ -255,12 +256,13 @@ def TransmittString(topic, value):
 	WriteFIFO(0x43);
 
 	#Transmitt datat
-	WriteFIFO(44)
+	WriteFIFO(0x2C)
 	WriteFIFO(topic)
 	WriteFIFO(value)
-	writeFIFO(55)
+	WriteFIFO(0x37)
 
 	print 44, topic, value, 55
+	
 	#wait for transmitt done, set the transiver back to sleep
 	while soc.bcm2835_gpio_lev(trIRQ1) == 0:
 			q=1
@@ -334,7 +336,7 @@ def main():
 				print(ord(data[1]))
 				print(ord(data[2]))
 				print(ord(data[3]))
-				TransmittString(data[1],data[2])
+				TransmittString(ord(data[1]),ord(data[2]))
 						
 				
 								
