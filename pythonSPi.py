@@ -1,25 +1,16 @@
-
-
-
-#include <bcm2835.h>
-import libbcm2835._bcm2835 as soc 
-#include <stdio.h>
+#imports
+import libbcm2835._bcm2835 as soc
 import select as select
 from ctypes import *
 from bluetooth import *
-
+from random import randint
+from time import sleep
 server_sock=BluetoothSocket( RFCOMM )
 server_sock.bind(("",PORT_ANY))
 server_sock.listen(1)
 
 port = server_sock.getsockname()[1]
-
 uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
-
-
-
-
-
 
 
 TransmittedString = [10]
@@ -184,30 +175,41 @@ def TransiverToReceive():
 #Function reads the fifo from the transiver and returns the data package
 #************************************************************************************
 def TransiverReadFIFO():
-	global TransmittedString
-	
-
-
-
+	TransmittedString = [0,0,0,0]
 	SetRFMode(0x20)
 	i=0
-	print 'Transiver read fifo:    '
 	while soc.bcm2835_gpio_lev(13) == 1:
 		tmp = ReadFIFO()
-
 		if tmp == 44:
-			print("New Packet:")
 			TransmittedString[0] = tmp
 			TransmittedString[1] = ReadFIFO()
 			TransmittedString[2] = ReadFIFO()
-			TransmittedString[3] = ReadFIFO()
-				
-		print TransmittedString					
-	
+			tmp1 = ReadFIFO()
+			if tmp1 == 55:
+				TransmittedString[3] = tmp1
+				print "New Packet:"
+				print TransmittedString
+				client_sock.send(chr(44)+chr(TransmittedString[1])+chr(TransmittedString[2])+chr(55))
+				print TransmittedString[2]	
 
 	soc.bcm2835_delay(10)
 	SetRFMode(0x00)
-	return	
+	return
+#************************************************************************************
+#SendViaBluetooth()
+#Sends packet via bluetooth to android
+#************************************************************************************	
+#def SendViaBluetooth(topic, value):
+#	if (startTime-time.time())>1 and len(bluetoothBuffer)==0:
+#		client_sock.send(chr(44)+topic+value+chr(55))
+#		start = time.time()
+#	elif (startTime-time.time())>1:
+#		client_sock.send(chr(44)+bluetoothBuffer.pop(0)+bluetoothBuffer.pop(0)+chr(55))
+#		start=time.time()
+#	else:
+#		bluetoothBuffer.append(topic)
+#		bluetoothBuffer.append(value)
+#	
 #************************************************************************************
 # Initiate the transiver
 #************************************************************************************
@@ -311,18 +313,10 @@ def main():
 	soc.bcm2835_delay(6)
    
 	TransiverInit()
-	print "Initiation Complete"
-	#while False:		
-	#	TransiverToReceive()	
-	#	while soc.bcm2835_gpio_lev(trIRQ1)==0:
-	#		l=0
-	#	TransiverReadFIFO()
-		#client_soct.send("he")
-		#print "sending [%s]" % data	
-	advertise_service( server_sock, "SampleServer", service_id = uuid,service_classes = [ uuid, SERIAL_PORT_CLASS ],profiles = [ SERIAL_PORT_PROFILE ],)
-                   
+	print "Initiation Complete"	
+	advertise_service( server_sock, "SampleServer", service_id = uuid,service_classes = [ uuid, SERIAL_PORT_CLASS ],profiles = [ SERIAL_PORT_PROFILE ],)         
 	print("Waiting for connection on RFCOMM channel %d" % port)
-
+	global client_sock
 	client_sock, client_info = server_sock.accept()
 	print("Accepted connection from ", client_info)
 	client_sock.setblocking(0)
@@ -332,38 +326,31 @@ def main():
 
 	try:
     		while True:
-		#	r,_,_ = select.select([client_sock],[],[])
-		#	if r:
 			try:
 						
 				data = client_sock.recv(1024)
  				if len(data)==0: break
-				print(ord(data[0]))
-				print(ord(data[1]))
-				print(ord(data[2]))
-				print(ord(data[3]))
+				#for x in range(0,100):
+				#	client_sock.send(chr(44)+chr(11)+chr(1)+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(1)+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(1)+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(1)+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(x)+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(124)+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(26)+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(randint(10,200))+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(randint(10,200))+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(randint(10,200))+chr(55))
+				#	client_sock.send(chr(44)+chr(10)+chr(randint(10,200))+chr(55))
+				#	client_sock.send(chr(44)+chr(12)+chr(1)+chr(55))
+				#	sleep(0.1)
+				#client_sock.send(chr(44)+ chr(8)+chr(1)+chr(55))
+				#print "done"
 				TransmittString(ord(data[1]),ord(data[2]))
-						
-				
-								
+				TransiverToReceive()
+							
 			except Exception as e:
-				l = 1
-		#	client_sock.send("MOKKEL")
-		#	if len(data) != 0:
-		#		print("BT received %s " % data)
-		#		TransmittStringd(data)
-		#		TransiverToReceive()
-		#	if data=="Flash":
-		#		TransmittString(',' + '1' + '1' + '7' )
-		#	if data=="Light":
-		#		TransmittString("FLASHL")
-		#	if data=="N1Flash":
-		#		TransmittString("N1BLINK")
-		#	if data=="N2Flash":
-		#		TransmittString("N2BLINK")
-
-		#	soc.bcm2835_delay(100)	
-		#	print "Bustel com"	
+				l = 1	
 			if soc.bcm2835_gpio_lev(trIRQ1)==1:
 				TransiverReadFIFO()	
 				TransiverToReceive()	 	
